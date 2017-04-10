@@ -1,0 +1,10 @@
+d08af3c4837df3c4bb96ba32a7e392b6  dpm.c
+a41fe4eb286e0caca6fdfe491318c56b  dpm.h
+9c23f6b943b0121b49ce1aebfe79e242  fwupdate
+963f101c67c927c2e795fefdcb5af3c8  hcanpci.c
+aa53bb77100b53090adddd39e4ce49c7  hcanpci-fw2-v1162en-edi1823.bin
+24d49cfa58fa56cdcc672729418ac6d7  _hico_api.h
+76439d387c5751eecc73b0cd52585e7b  hico_api.h
+9043e04b10af789db4b74466147dffea  Makefile
+bdc800c3abf8fc56c7a6b444850f8761  makenodes.sh
+29fd50225a8bd3a527b0d1f6e770d362  version.h

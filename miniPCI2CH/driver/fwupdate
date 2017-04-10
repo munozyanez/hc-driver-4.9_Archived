@@ -1,0 +1,63 @@
+#!/bin/bash
+
+# Script to update HiCO.CAN-MiniPCI/PCI104 and PC/104+ firmware.
+# Example:
+#   sudo fwupdate /dev/can0 ./hcanpci-fw2-vXXXen-edi1823.bin
+#
+
+FWLOAD_FORCE=${FWLOAD_FORCE:-}
+
+Exit(){
+    exit_val=$?
+    if [ $exit_val -eq 10 ]; then
+	echo "$0: aborted" >&2
+	exit 1
+    elif [ $exit_val -ne 11 ]; then
+	echo "Usage: sudo $0: <can_node> <fw_image>"
+    fi
+
+    # Make sure we don't leave in fw_update mode
+    (echo 0 > /sys/module/hcanpci/parameters/fw_update) 2>/dev/null
+
+    if [ $exit_val -eq 11 ]; then
+	exit 0
+    fi
+}
+
+trap Exit EXIT
+
+NODE=$1
+FW_IMAGE=$2
+
+set -u
+set -e
+
+test -z "$NODE" -o -z "$FW_IMAGE" && exit 1
+
+# Check from the strings in the image that we are not loading just some
+# garbage into the boards flash
+if [ -z "`strings $FW_IMAGE | grep '__stack_sys_limit__'`" \
+	-o -z "`strings $FW_IMAGE | grep 'FW2: rev='`"  ]; then
+	echo "Image $FW_IMAGE doesn't look like a valid FW2 image" >&2
+	exit 10
+fi
+
+if [ -z "$FWLOAD_FORCE" ]; then
+    echo
+    echo "Updating firmware using device node $NODE and fw image $FW_IMAGE"
+    echo -n "Do you want to proceed? y/n: "
+    read ANS
+    if [ "$ANS" != "y" -a "$ANS" != "Y" ]; then
+	exit 10
+    fi
+fi
+
+echo 1 > /sys/module/hcanpci/parameters/fw_update
+
+dd if=$FW_IMAGE of=$NODE bs=128k
+
+echo 0 > /sys/module/hcanpci/parameters/fw_update
+
+echo "$0: Done"
+echo "Please check the firmware from /proc/hcanpci/board_*"
+exit 11
