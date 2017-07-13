@@ -273,6 +273,7 @@ static ssize_t hcan_board_read(struct file *filp,   /* see include/linux/fs.h   
         return 0;
     }
     readTwice=true;
+    //ENDFIXME: find a smarter way to avoid infinite reding.
 
     bs = &board->dpm->board_status;
 
@@ -466,6 +467,7 @@ static ssize_t hcan_node_read(struct file *filp,   /* see include/linux/fs.h   *
         return 0;
     }
     readTwice=true;
+    //ENDFIXME: find a smarter way to avoid infinite reding.
 
     switch(ioread16(&cs->mode)){
 	case 1: mode="baudscan"; break;

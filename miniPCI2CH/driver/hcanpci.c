@@ -263,6 +263,16 @@ static ssize_t hcan_board_read(struct file *filp,   /* see include/linux/fs.h   
     uint8_t byte;
     uint16_t word;
 
+    //FIXME: find a smarter way to avoid infinite reding.
+    static bool readTwice;
+    if(readTwice)
+    {
+        readTwice=false;
+        return 0;
+    }
+    readTwice=true;
+    //ENDFIXME: find a smarter way to avoid infinite reding.
+
     bs = &board->dpm->board_status;
 
     len+=sprintf(buf+len,"\nboard %s\n",pci_name(board->pdev));
@@ -429,10 +439,19 @@ static ssize_t hcan_node_read(struct file *filp,   /* see include/linux/fs.h   *
     char *mode=NULL,*type=NULL;
     struct hcan_node *node;//copied from newer 4CH code
     node=PDE_DATA(file_inode(filp));//copied from newer 4CH code
-    //struct hcan_node *node = filp;
     struct hcan_board *board = node->board;
     struct can_status *cs=node->can_status;
     uint8_t byte;
+
+    //FIXME: find a smarter way to avoid infinite reding.
+    static bool readTwice;
+    if(readTwice)
+    {
+        readTwice=false;
+        return 0;
+    }
+    readTwice=true;
+    //ENDFIXME: find a smarter way to avoid infinite reding.
 
     switch(ioread16(&cs->mode)){
 	case 1: mode="baudscan"; break;
@@ -1331,7 +1350,7 @@ static int hcan_pci_probe (struct pci_dev *pdev, const struct pci_device_id *pci
 {
     struct hcan_board *board;
     int ret,i;
-    char name[50];
+//    char name[50];//
     if( (pci_id->subdevice != HICOMPCI_PCI_SUBDEV_ID) &&  
 	    (pci_id->subdevice != HICOPCI104_PCI_SUBDEV_ID)){
 	printk(KERN_WARNING "%s: called for a device with wrong subdevice id 0x%x\n",
@@ -1409,7 +1428,7 @@ static int hcan_pci_probe (struct pci_dev *pdev, const struct pci_device_id *pci
      * for the filename. The must be a more intelligent way to get the bus/dev
      * Ids, but i was too lazy to figure it out...*/
     {
-	char name[20];
+//	char name[20];
 	int busn, devn,dummy;
 	if(sscanf(pci_name(pdev),"%x:%x:%x.%x",&dummy,&busn,&devn,&dummy)!=4){
         sprintf(board->proc_name,"board_%s",pci_name(pdev));
