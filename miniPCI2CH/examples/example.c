@@ -117,7 +117,6 @@ char *msg2str(struct can_msg *msg)
     static char buf[100],*ptr=NULL;
 
     ptr=&buf[0]; 
-
     ptr+=sprintf(ptr,"%s=%08x rtr=%d ts=%d data %d bytes: ",
 	    msg->ff?"extID":"   ID",
 	    msg->id,

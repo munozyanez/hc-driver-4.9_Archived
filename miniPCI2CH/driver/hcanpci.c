@@ -63,6 +63,8 @@ struct hcan_node{
 
     /* CAN node number */
     int number;
+    char proc_name[50];
+
 
     /* Interrupt bits (correspond the INT_CAN*_ definitions */
     uint16_t rx_int;
@@ -88,6 +90,7 @@ struct hcan_board{
     uint8_t *cfg_base;
     struct dpm *dpm;
     struct hcan_node node[NUMBER_OF_CAN_NODES];
+    char proc_name[50];
     int number;
     
     /* these are updated in get_fw1_version */
@@ -108,6 +111,7 @@ struct hcan_board{
 
     /* Semaphore used when sending commands to the board */
     struct semaphore sem;
+//struct mutex sem;
 
     int cmd_timeout;
     int latte_timeout;
@@ -240,12 +244,19 @@ int node_cmd(struct hcan_node *node, uint16_t cmd,
 }
 
 
-int hcan_board_proc(char *buf, char **start, off_t offset, int count,
-		      int *eof, void *data)
+//int hcan_board_proc(char *buf, char **start, off_t offset, int count,
+//		      int *eof, void *data)
+//data is now filp
+static ssize_t hcan_board_read(struct file *filp,   /* see include/linux/fs.h   */
+                           char *buf,        /* buffer to fill with data */
+                           size_t length,       /* length of the buffer     */
+                           loff_t * offset)
 {
     int len = 0,i;
     
-    struct hcan_board *board = data;
+    //struct hcan_board *board = filp;
+    struct hcan_board *board;//copied from newer 4CH driver
+    board=PDE_DATA(file_inode(filp));//copied from newer 4CH driver
     struct board_status *bs;
     struct can_status *cs;
     char *str;
@@ -271,7 +282,7 @@ int hcan_board_proc(char *buf, char **start, off_t offset, int count,
     len+=sprintf(buf+len,"fw state: %04x - %s\n",
 	    word,str);
     if(word==FW1_RUNNING){
-	*eof = 1;
+    //*eof = 1; //used on previous code
 	return len;
     }
 
@@ -401,17 +412,24 @@ int hcan_board_proc(char *buf, char **start, off_t offset, int count,
     len+=sprintf(buf+len,"interrupt: %d\n",
 	    board->pdev->irq);
 
-    *eof = 1;
+    //*eof = 1; //used on previous code
     return len;
 }
 
-int hcan_node_proc(char *buf, char **start, off_t offset, int count,
-		      int *eof, void *data)
+//int hcan_node_proc(char *buf, char **start, off_t offset, int count,
+//		      int *eof, void *data)
+//data is now filp
+static ssize_t hcan_node_read(struct file *filp,   /* see include/linux/fs.h   */
+                           char *buf,        /* buffer to fill with data */
+                           size_t length,       /* length of the buffer     */
+                           loff_t * offset)
 {
     int len = 0;
     
     char *mode=NULL,*type=NULL;
-    struct hcan_node *node = data;
+    struct hcan_node *node;//copied from newer 4CH code
+    node=PDE_DATA(file_inode(filp));//copied from newer 4CH code
+    //struct hcan_node *node = filp;
     struct hcan_board *board = node->board;
     struct can_status *cs=node->can_status;
     uint8_t byte;
@@ -478,7 +496,7 @@ int hcan_node_proc(char *buf, char **start, off_t offset, int count,
 
 	    len+=sprintf(buf+len,"int_enable=%04x\n",ioread16(&board->dpm->int_enable));
 
-    *eof = 1;
+    //*eof = 1; //used in former code
     return len;
 }
 
@@ -1190,6 +1208,25 @@ struct file_operations hcan_fops = {
     .release = hcan_release,
 };
 
+struct file_operations hboard_fops = {
+    .owner = THIS_MODULE,
+    .read = hcan_board_read,
+//    .write = hcan_write,
+//    .unlocked_ioctl = hcan_ioctl,
+//    .poll = hcan_poll,
+//    .open = hcan_open,
+//    .release = hcan_release,
+};
+struct file_operations hnode_fops = {
+    .owner = THIS_MODULE,
+    .read = hcan_node_read,
+//    .write = hcan_write,
+//    .unlocked_ioctl = hcan_ioctl,
+//    .poll = hcan_poll,
+//    .open = hcan_open,
+//    .release = hcan_release,
+};
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,19) 
 static irqreturn_t hcan_interrupt(int irq, void *__host)
 #else
@@ -1366,7 +1403,7 @@ static int hcan_pci_probe (struct pci_dev *pdev, const struct pci_device_id *pci
 
 
     /* Initialse board mutex */
-    mutex_init(&board->sem);
+    sema_init(&board->sem,1); //copied from 4CH driver
 
     /* Create a proc file entry for the board. Use the bus and device numbers
      * for the filename. The must be a more intelligent way to get the bus/dev
@@ -1375,18 +1412,24 @@ static int hcan_pci_probe (struct pci_dev *pdev, const struct pci_device_id *pci
 	char name[20];
 	int busn, devn,dummy;
 	if(sscanf(pci_name(pdev),"%x:%x:%x.%x",&dummy,&busn,&devn,&dummy)!=4){
-	    sprintf(name,"board_%s",pci_name(pdev));
+        sprintf(board->proc_name,"board_%s",pci_name(pdev));
 	} else {
-	    sprintf(name,"board_%02x_%02x",busn,devn);
+        sprintf(board->proc_name,"board_%02x_%02x",busn,devn);
 	}
-	board->proc_file = create_proc_read_entry(name,	//name
-				   0666,	//default mode
-				   board->proc_dir,	//parent dir
-				   hcan_board_proc, 
-				   board);
+    //old code commented
+//	board->proc_file = create_proc_read_entry(name,	//name
+//				   0666,	//default mode
+//				   board->proc_dir,	//parent dir
+//				   hcan_board_proc,
+//    				   board);
+    board->proc_file = proc_create_data(board->proc_name,	//name
+                                        0666,	//default mode
+                                        board->proc_dir,	//parent dir
+                                        &hboard_fops,
+                                        board);
 	if (!board->proc_file){
 	    printk(KERN_WARNING "%s: Failed to create proc entry '%s'\n",
-		    __FUNCTION__,name);
+            __FUNCTION__,board->proc_name);
 	}
     }
 
@@ -1455,15 +1498,20 @@ static int hcan_pci_probe (struct pci_dev *pdev, const struct pci_device_id *pci
 	    node->cdev_added=1;
 	}
 
-	sprintf(&name[0],"can%d",node->minor);
-	node->proc_file = create_proc_read_entry(name,	//name
-				   0666,	//default mode
-				   board->proc_dir,	//parent dir
-				   hcan_node_proc, 
-				   node);
+    sprintf(&node->proc_name[0],"can%d",node->minor);
+//	node->proc_file = create_proc_read_entry(name,	//name
+//				   0666,	//default mode
+//				   board->proc_dir,	//parent dir
+//				   hcan_node_proc,
+//				   node);
+    node->proc_file = proc_create_data(node->proc_name,	//name
+                   0666,	//default mode
+                   board->proc_dir,	//parent dir
+                   &hnode_fops,
+                   node);
 	if (!node->proc_file){
 	    printk(KERN_WARNING "%s: Failed to create proc entry '%s'\n",
-		    __FUNCTION__,name);
+            __FUNCTION__,node->proc_name);
 	}
     }
 
@@ -1508,7 +1556,7 @@ err_out_kfree_nodes:
 	}
 
 	if(node->proc_file){
-	    remove_proc_entry(node->proc_file->name,node->proc_file->parent);
+        remove_proc_entry(node->proc_name,board->proc_dir);
 	    node->proc_file=NULL;
 	}
     }
@@ -1517,7 +1565,7 @@ err_out_kfree_nodes:
     if(board->cfg_base) iounmap(board->cfg_base);
 
     if(board->proc_file){
-	remove_proc_entry(board->proc_file->name,board->proc_file->parent);
+    remove_proc_entry(board->proc_name,board->proc_dir);
 	board->proc_file=NULL;
     }
 
@@ -1549,13 +1597,13 @@ static void hcan_pci_remove (struct pci_dev *pdev)
 	    cdev_del(&node->cdev);
 	}
 	if(node->proc_file){
-	    remove_proc_entry(node->proc_file->name,node->proc_file->parent);
+        remove_proc_entry(node->proc_name,board->proc_dir);
 	    node->proc_file=NULL;
 	}
     }
 
     if(board->proc_file){
-	remove_proc_entry(board->proc_file->name,board->proc_file->parent);
+    remove_proc_entry(board->proc_name,board->proc_dir);
 	board->proc_file=NULL;
     }
 
@@ -1630,7 +1678,8 @@ static int __init hcan_init(void)
     return 0;
 
 fail_register:
-    remove_proc_entry(hcan_proc_dir->name,NULL);
+    //remove_proc_entry(hcan_proc_dir->name,NULL);
+    remove_proc_entry(DRV_NAME,NULL);
 
 fail:
     unregister_chrdev_region(MKDEV(major,FIRST_MINOR),MINOR_COUNT);
@@ -1641,7 +1690,8 @@ static void hcan_exit(void)
 {
     pci_unregister_driver(&hcan_pci_driver);
 
-    remove_proc_entry(hcan_proc_dir->name,NULL);
+    //remove_proc_entry(hcan_proc_dir->name,NULL);
+    remove_proc_entry(DRV_NAME,NULL);
     
     unregister_chrdev_region(MKDEV(major,FIRST_MINOR),MINOR_COUNT);
 }

@@ -299,7 +299,7 @@ struct err_stat{
 
 
 /**************************************************************************/
-/* structure of a CAN messages                                            */
+/* structure of a CAN  messages                                            */
 /**************************************************************************/
 /* This structure is used for sending and receiving messages. Not all fields
  * have a meaning when sending (e.g. timestamp) */
@@ -313,7 +313,7 @@ struct err_stat{
 
 struct can_msg {
     union{
-	uint16_t fi;
+    uint16_t fi;
 #ifdef HICO_LE
 	struct {
 	    /* Data length 0 to 8 */
@@ -355,6 +355,11 @@ struct can_msg {
     /* CAN identifier */
     uint32_t id;
 
+    /*los puse yo probar*/
+//    uint16_t rtr;
+
+//    uint16_t dlc;
+
     /* CAN message data */
     uint8_t data[8];
 }PACKED;
@@ -373,8 +378,13 @@ struct can_filter{
 	uint32_t lower;
     };
 };
+
 #define FTYPE_AMASK 1
 #define FTYPE_RANGE 2
 
+
  
 #endif
+
+
+

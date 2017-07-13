@@ -303,7 +303,7 @@ static ssize_t hcan_board_read(struct file *filp,   /* see include/linux/fs.h   
     len+=sprintf(buf+len,"fw state: %04x - %s\n",
 	    word,str);
     if(word==FW1_RUNNING){
-//	*eof = 1;
+//	*eof = 1; //used on previuos code
 	return len;
     }
 
@@ -1426,6 +1426,7 @@ static int hcan_pci_probe (struct pci_dev *pdev, const struct pci_device_id *pci
 	} else {
         sprintf(board->proc_name,"board_%02x_%02x",busn,devn);
 	}
+    //old code commented
 //    board->proc_file = proc_create(name,	//name
 //				   0666,	//default mode
 //				   board->proc_dir,	//parent dir
